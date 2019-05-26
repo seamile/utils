@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+import sys
+from json import loads
+from urllib.request import urlopen
+
+
+def chk_ip(ip):
+    url = 'http://ip.taobao.com/service/getIpInfo2.php?ip=%s' % ip
+    resp = urlopen(url)
+    if resp.status == 200:
+        data = resp.read()
+        ip_info = loads(data)
+        template = '{ip:15s} -> {country} / {region} / {city}'
+        print(template.format(**ip_info['data']))
+    else:
+        print('HTTP-%s: %s' % (resp.status, ip))
+
+
+if __name__ == '__main__':
+    if len(sys.argv) == 1:
+        print('usage: chkip IP1 [IP2 IP3 ...]')
+        sys.exit(1)
+    else:
+        for ip in sys.argv[1:]:
+            chk_ip(ip)
