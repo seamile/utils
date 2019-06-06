@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Universally unzip tool
+
+decompress() {
+    fileinfo=`file -b $1`
+    filetype=`
+        echo $fileinfo |
+        awk '{
+            if ($0~/(tar|compress\x27d)/) {
+                print "tar"
+            } else {
+                print tolower($1)
+            }
+        }'
+    `
+
+    case $filetype in
+    tar|xz)
+        tar -xvf $1;;
+    gzip)
+        tar -xzvf $1;;
+    bzip2)
+        tar -xjvf $1;;
+    zip)
+        unzip $1;;
+    7-zip|rar)
+        7z x $1;;
+    *)
+        fileinfo=`file $1`
+        echo "uz: unknow compress method: $fileinfo"
+        return 1
+    esac
+}
+
+if [[ $# == 0 ]]; then
+    echo 'uz: usage: uz file1 [file2 ...]'
+    exit 1
+else
+    for filename in $@;
+    do
+        if [ -f $filename ]; then
+            decompress $filename
+        else
+            echo "$filename is not a file"
+        fi
+    done
+fi
