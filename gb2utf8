@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+
+import sys
+
+
+if sys.argv[1:]:
+    max_length = len(max(sys.argv[1:], key=lambda s: len(s))) + 1
+
+    for filename in sys.argv[1:]:
+        with open(filename, 'rb') as fp:
+            gb_text = fp.read()
+
+        try:
+            uni_text = gb_text.decode('gb18030')
+        except UnicodeDecodeError as e:
+            print(f'{filename.ljust(max_length)}: not encoded by GB.')
+            continue
+        else:
+            with open(filename, 'wb') as fp:
+                utf8_text = uni_text.encode('utf-8')
+                fp.write(utf8_text)
+            print(f'{filename.ljust(max_length)}: done.')
+else:
+    print('usage: gb2utf8 file1 [file2 ...]')
+    sys.exit(1)

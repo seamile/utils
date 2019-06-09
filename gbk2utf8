@@ -1,5 +1,0 @@
-#!/usr/bin/env python3
-
-def gbk2urf8(filename):
-    with open(filename, ):
-
