@@ -27,7 +27,7 @@ decompress() {
         7z x $1;;
     *)
         fileinfo=`file $1`
-        echo "uuz: unknow compress method: $fileinfo"
+        echo "uz: unknow compress method: $fileinfo"
         return 1
     esac
 }

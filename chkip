@@ -7,8 +7,7 @@ from json import loads
 from urllib.request import urlopen
 from urllib.error import HTTPError
 
-
-TEMPLATE = '{ip:15s} -> {country} / {region} / {city}'
+TEMPLATE = '{ip:15s} -> {addr}'
 ERR_TEMPLATE = '{ip:15s} -> {msg}'
 
 
@@ -43,7 +42,7 @@ class retry(object):
 def is_ip(addr):
     '''检查是否时 IP 地址'''
     IP_PATTERN = (r'^(2(5[0-5]|[0-4]\d)|1\d\d|[1-9]\d|\d)'
-                  '(\.(2(5[0-5]|[0-4]\d)|1\d\d|[1-9]\d|\d)){3}$')
+                  r'(\.(2(5[0-5]|[0-4]\d)|1\d\d|[1-9]\d|\d)){3}$')
     return True if re.match(IP_PATTERN, addr) else False
 
 
@@ -57,15 +56,16 @@ def dns(host):
         print_err(host, e)
 
 
-@retry(3, 1.5, (HTTPError,))
+@retry(3, 3, (HTTPError,))
 def chk_ip(ip):
     '''检查 IP'''
-    url = 'http://ip.taobao.com/service/getIpInfo2.php?ip=%s' % ip
-    resp = urlopen(url)
+    api = 'http://freeapi.ipip.net/%s' % ip
+    resp = urlopen(api)
     if resp.status == 200:
-        data = resp.read()
-        ip_info = loads(data)
-        print(TEMPLATE.format(**ip_info['data']))
+        data = loads(resp.read())
+        addr = ' / '.join(filter(None, data))
+        ip_info = {'ip': ip, 'addr': addr}
+        print(TEMPLATE.format(**ip_info))
     else:
         msg = 'http status is %s' % resp.status
         print_err(ip, msg)
@@ -74,11 +74,15 @@ def chk_ip(ip):
 if __name__ == '__main__':
     if len(sys.argv) > 1:
         for ip in sys.argv[1:]:
-            if not is_ip(ip):
-                ip = dns(ip)
-                if ip is None:
-                    continue
-            chk_ip(ip)
+            try:
+                if not is_ip(ip):
+                    ip = dns(ip)
+                    if ip is None:
+                        continue
+                chk_ip(ip)
+            except KeyboardInterrupt:
+                print('\nchkip: user abort.')
+                sys.exit(1)
     else:
         print('usage: chkip IP1 [IP2 IP3 ...]')
         sys.exit(1)
