@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# kill process which use the port
+
+port=$1
+pids=`lsof -s tcp:listen -i:$port|awk 'NR>1 {print $2}'|sort|uniq`
+[ -n "$pids" ] && kill $pids

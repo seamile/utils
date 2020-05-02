@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# virtualenv activate
+
+if [[ -f "$1/.venv/bin/activate" ]]; then
+    source $1/.venv/bin/activate
+elif [[ -f "$1/bin/activate" ]]; then
+    source $1/bin/activate
+elif [[ -f "$1/activate" ]]; then
+    source $1/activate
+elif [[ -f "$1" ]]; then
+    source $1
+elif [[ -f ".venv/bin/activate" ]]; then
+    source .venv/bin/activate
+else
+    echo 'Venv: Cannot find the activate file.'
+fi

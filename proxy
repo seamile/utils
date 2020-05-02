@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Set or unset the `ALL_PROXY` for shell
+# socks proxy use port 1086
+# http proxy use port 1087
+
+if [ -z "$ALL_PROXY" ]; then
+    if [[ $1 == "-s" ]]; then
+        export ALL_PROXY="socks5://127.0.0.1:1086"
+    else
+        export ALL_PROXY="http://127.0.0.1:1087"
+    fi
+    printf "Proxy on: $ALL_PROXY\n";
+else
+    unset ALL_PROXY;
+    printf 'Proxy off\n';
+fi

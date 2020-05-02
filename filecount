@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# list files of each dir
+
+for dir in $@
+do
+    if [ -d $dir ]; then
+        cnt=`find $dir -type file | wc -l`
+        printf "%6s %s\n" $cnt $dir
+    fi
+done

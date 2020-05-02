@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# md5sum for mac
+
+if [ `uname` = "Darwin" ]; then
+    for fname in $@
+    do
+        if [ -f $fname ]; then
+            checksum=`md5 -q $fname`
+            echo "$checksum  $fname"
+        fi
+    done
+elif [ `uname` = "Linux" ]; then
+    PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+    md5sum $@
+else
+    echo 'Unknow Platform'
+    exit 1
+fi

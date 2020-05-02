@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# download by server
+
+ssh bee "wget $1 -O /tmp/$2"
+scp bee:/tmp/$2 $2
+ssh bee "rm /tmp/$2"

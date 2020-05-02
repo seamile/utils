@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# top the specified pids
+
+if [ `uname` = "Darwin" ]; then
+    local CMD="top"
+    for P in `pgrep $1`; do
+        CMD+=" -pid $P"
+    done
+    eval $CMD
+else
+    local CMD="top -p "
+    for P in `pgrep $1`; do
+        CMD+="$P,"
+    done
+    eval ${CMD%%,}
+fi
