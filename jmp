@@ -2,7 +2,7 @@
 
 # open a ssh proxy
 
-host=${1:-"box"}
+host=${1:-"bee"}
 port=${2:-1086}
 if ! lsof -sTCP:LISTEN -iTCP:$port > /dev/null
 then
