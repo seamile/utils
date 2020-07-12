@@ -2,7 +2,13 @@
 
 # list files of each dir
 
-for dir in $@
+if [[ $# == 0 ]]; then
+    dirs=("./")
+else
+    dirs=$@
+fi
+
+for dir in $dirs
 do
     if [ -d $dir ]; then
         cnt=`find $dir -type file | wc -l`
