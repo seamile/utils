@@ -6,7 +6,7 @@ host=${1:-"bee"}
 port=${2:-1086}
 if ! lsof -sTCP:LISTEN -iTCP:$port > /dev/null
 then
-    ssh -qTfnN -D $port root@$host
+    ssh -qTfnN -D $port ubuntu@$host
     echo "Proxy:"
     echo "    remote host: $host"
     echo "    local  port: $port"
