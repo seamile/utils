@@ -50,7 +50,5 @@ do
             printf "${RED}Deleting: $cur_dir$NON\n"
             rm -r $cur_dir
         fi
-    else
-            printf "${GRAY}NonEmpty: $cur_dir$NON\n"
     fi
 done

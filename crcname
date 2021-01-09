@@ -2,10 +2,10 @@
 
 # set filename with crc32
 
-for filename in $*
+for filename in $@
 do
     if [[ -f $filename ]]; then
-        hash_code=`crc32 $filename`
+        hash_code=`crc32 $filename|awk '{print $1}'`
         ext_name=`echo "${filename##*.}" | tr '[:upper:]' '[:lower:]'`
         new_name="$hash_code.$ext_name"
         mv -nv $filename $new_name
