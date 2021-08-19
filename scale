@@ -1,0 +1,87 @@
+#!/usr/bin/env python
+
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
+from imghdr import what
+from os import remove
+from pathlib import Path
+from PIL import Image
+from shutil import copy
+from subprocess import getstatusoutput
+from typing import Generator
+
+
+def scale(img_path: Path, side_pix: int, max_pix: int, output_dir):
+    '''放大文件'''
+    name = img_path.name.rsplit('.')[0]
+    target = output_dir.joinpath(f'{name}.png')
+    copy(img_path, target)
+
+    # 读取文件大小，并计算缩放次数
+    img = Image.open(target)
+    long_side = max(img.size)
+    double_times = 0
+    while long_side < side_pix:
+        long_side *= 2
+        double_times += 1
+
+    # 放大
+    cmd = f'waifu2x -t p -s 2 -n 3 -i {target} -o {target}'
+    for i in range(double_times):
+        print(f'  > zoom in {target.name} {i+1}th')
+        stat, _ = getstatusoutput(cmd)
+        if stat != 0:
+            print(f'  > scale {target.name} err')
+            break
+
+    # 重新读取文件
+    img = Image.open(target)
+    long_side = max(img.size)
+    if long_side > max_pix:
+        factor = long_side / side_pix
+        w, h = img.size
+        w = int(w / factor)
+        h = int(h / factor)
+        print(f'  > resize {target.name} from {img.size} to ({w}, {h})')
+        img = img.resize((w, h))
+
+    name = target.name.rsplit('.')[0]
+    new_target = output_dir.joinpath(f'{name}.jpg')
+    img.save(new_target, quality=95)
+    remove(target)
+    print(f'  > {new_target.name} finished\n')
+
+
+def find_images(img_dir: Path) -> Generator[Path, None, None]:
+    for item in img_dir.iterdir():
+        if item.is_file() and what(item) in ['jpeg', 'png', 'bmp', 'webp']:
+            yield item
+
+
+def main(args):
+    side_pix = args.pixel
+    max_pix = args.maxpix
+    output_dir = Path(args.output)
+    for path in args.images:
+        _path = Path(path)
+        if _path.is_dir():
+            for img_path in find_images(_path):
+                print(f'processing {img_path.name}')
+                scale(img_path, side_pix, max_pix, output_dir)
+        else:
+            print(f'processing {_path.name}')
+            scale(_path, side_pix, max_pix, output_dir)
+
+
+if __name__ == '__main__':
+    parser = ArgumentParser(
+        prog='wfs',
+        formatter_class=RawDescriptionHelpFormatter
+    )
+
+    parser.add_argument('-p', dest='pixel', type=int, default=4096, help='长边的像素值')
+    parser.add_argument('-m', dest='maxpix', type=int, default=5000, help='长边最大像素值')
+    parser.add_argument(dest='images', nargs='+', help='图片文件或文件夹')
+    parser.add_argument(dest='output', type=str, help='输出目录')
+    args = parser.parse_args()
+
+    main(args)
