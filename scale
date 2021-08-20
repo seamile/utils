@@ -46,7 +46,7 @@ def scale(img_path: Path, side_pix: int, max_pix: int, output_dir):
 
     name = target.name.rsplit('.')[0]
     new_target = output_dir.joinpath(f'{name}.jpg')
-    img.save(new_target, quality=95)
+    img.convert('RGB').save(new_target, quality=95)
     remove(target)
     print(f'  > {new_target.name} finished\n')
 
