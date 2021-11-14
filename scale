@@ -37,8 +37,11 @@ def scale(img_path: Path, side_pix: int, max_pix: int, output_dir):
     img = Image.open(target)
     long_side = max(img.size)
     if long_side > max_pix:
-        factor = long_side / side_pix
         w, h = img.size
+        if w > h:
+            factor = long_side / max_pix
+        else:
+            factor = long_side / side_pix
         w = int(w / factor)
         h = int(h / factor)
         print(f'  > resize {target.name} from {img.size} to ({w}, {h})')
@@ -79,7 +82,7 @@ if __name__ == '__main__':
     )
 
     parser.add_argument('-p', dest='pixel', type=int, default=4096, help='长边的像素值')
-    parser.add_argument('-m', dest='maxpix', type=int, default=5000, help='长边最大像素值')
+    parser.add_argument('-m', dest='maxpix', type=int, default=5120, help='长边最大像素值')
     parser.add_argument(dest='images', nargs='+', help='图片文件或文件夹')
     parser.add_argument(dest='output', type=str, help='输出目录')
     args = parser.parse_args()
