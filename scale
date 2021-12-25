@@ -62,15 +62,19 @@ def get_new_size(size: Size, h_size: int, v_size: int, max_size: int) -> Size:
 
 def zoom_in(img_path: Path, cur_size: Size, new_size: Size, itype: str, noise: str) -> Size:
     '''放大'''
+    if itype == 'A':
+        itype = 'a' if min(cur_size) < 1024 else 'p'
     cmd = f'waifu2x -t {itype} -s 2 -n {noise} -i {img_path} -o {img_path}'
 
     while cur_size < new_size:
         _size = (cur_size[0] * 2, cur_size[1] * 2)
-        print(f'     zoom in: {_size[0]} x {_size[1]}', end='\r')
-        stat, _ = getstatusoutput(cmd)
+        print(f'     zoom in: {_size[0]:4d} x {_size[1]:4d}', end='\r')
+        stat, msg = getstatusoutput(cmd)
         if stat == 0:
             cur_size = _size
         else:
+            msg = msg.replace('\n', '\n              ')
+            print(f'\n       error: {msg}')
             break
     return cur_size
 
@@ -174,11 +178,11 @@ if __name__ == '__main__':
     parser.add_argument('-m', dest='max_size', type=int, default=8192, help='长边最大像素值 (默认值: %(default)s像素)')
     parser.add_argument('-b', dest='bytes', type=str, default='5m', help='图像的最大体积 (默认值: %(default)s)')
     parser.add_argument('-c', dest='cover', action='store_true', help='是否覆盖原图 (默认值: %(default)s)')
-    parser.add_argument('-t', dest='itype', choices='ap', default='p',
-                        help='图像类型：a (anime) / p (photo), (默认值: %(default)s)')
+    parser.add_argument('-t', dest='itype', choices='apA', default='A',
+                        help='图像类型：a (anime) / p (photo) / A (auto), (默认值: %(default)s)')
     parser.add_argument('-n', dest='noise', choices='01234', default='3',
                         help='降噪级别: 0-4 (默认值: %(default)s)')
-    parser.add_argument(dest='sources', nargs='+', help='图片文件或文件夹')
+    parser.add_argument(dest='sources', nargs='*', default=('./',), help='图片文件或文件夹')
 
     args = parser.parse_args()
     main(args)
