@@ -68,7 +68,7 @@ def zoom_in(img_path: Path, cur_size: Size, new_size: Size, itype: str, noise: s
 
     while cur_size < new_size:
         _size = (cur_size[0] * 2, cur_size[1] * 2)
-        print(f'     zoom in: {_size[0]:4d} x {_size[1]:4d}', end='\r')
+        print(f'     zoom in: {_size[0]:5d} x {_size[1]:<5d}', end='\r')
         stat, msg = getstatusoutput(cmd)
         if stat == 0:
             cur_size = _size
@@ -92,7 +92,7 @@ def zoom(src_path: Path, h_size: int, v_size: int, max_size: int,
 
     img = Image.open(cp_path)
     cur_size = img.size  # 初始大小
-    print(f'    original: {cur_size[0]} x {cur_size[1]}')
+    print(f'    original: {cur_size[0]:5d} x {cur_size[1]:<5d}')
     new_size = get_new_size(cur_size, h_size, v_size, max_size)  # 目标大小
 
     # 检查是否需要放大
@@ -103,7 +103,7 @@ def zoom(src_path: Path, h_size: int, v_size: int, max_size: int,
 
     # 检查是否超过目标尺寸
     if cur_size > new_size:
-        print(f'    zoom out: {new_size[0]} x {new_size[1]}', end='\r')
+        print(f'    zoom out: {new_size[0]:5d} x {new_size[1]:<5d}', end='\r')
         img = Image.open(cp_path).resize(new_size)
         img.save(cp_path)
         modified = True
@@ -121,7 +121,7 @@ def zoom(src_path: Path, h_size: int, v_size: int, max_size: int,
         modified = True
 
     fin_size = img.size
-    print(f'     finally: {fin_size[0]} x {fin_size[1]}')
+    print(f'     finally: {fin_size[0]:5d} x {fin_size[1]:<5d}   ')
 
     # 输出到目标位置
     suffix = cp_path.suffix if modified else src_path.suffix
