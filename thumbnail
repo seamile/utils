@@ -1,0 +1,79 @@
+#!/usr/bin/env python
+
+from argparse import ArgumentParser
+from glob import iglob
+from os.path import isdir, isfile, basename, splitext
+from PIL import Image
+
+
+parser = ArgumentParser(prog='thumbnail')
+parser.add_argument('-s', dest='size', default=540, type=int, help='长边的最大尺寸 (默认值: %(default)s)')
+parser.add_argument('-r', dest='rotate', default='keep', choices=['hor', 'ver', 'keep'],
+                    help='旋转缩略图，hor: 横向, ver: 纵向, keep: 保持不变. (默认值: %(default)s)')
+parser.add_argument('-q', dest='quality', type=int, default=70, help='JPEG 缩略图的质量 (默认值: %(default)s)')
+
+parser.add_argument(dest='srcs', nargs='+', help='source path')
+parser.add_argument(dest='dst', help='destination path')
+
+args = parser.parse_args()
+
+
+def zoomout_image(img: Image.Image):
+    # 缩放
+    w1, h1 = img.size
+    aspect = w1 / h1
+    if w1 > args.size or h1 > args.size:
+        if w1 > h1:
+            w2 = args.size
+            h2 = int(round(w2 / aspect, 0))
+        else:
+            h2 = args.size
+            w2 = int(round(h2 * aspect, 0))
+
+        print(f'({w1} x {h1}) -> ({w2} x {h2})', end=' ')
+        img.thumbnail((w2, h2))
+
+    # 旋转
+    if (aspect <= 0.9 and args.rotate == 'hor') \
+            or aspect >= 1.1 and args.rotate == 'ver':
+        return img.transpose(Image.ROTATE_270)
+    else:
+        return img
+
+
+def gen_thumbnail(imgpath: str, thumb_dir: str):
+    img = Image.open(imgpath)
+    img = zoomout_image(img)
+
+    fname = splitext(basename(imgpath))[0]
+    img.convert('RGB').save(f'{thumb_dir}/{fname}.jpg', optimize=True, quality=args.quality)
+
+
+def filter_img_files(dirname: str):
+    '''过滤出指定目录的图片'''
+    return iglob(f'{dirname}/*_p*.??g')
+
+
+def main():
+    for src in args.srcs:
+        if isfile(src):
+            print(f'processing {src}', end=' ')
+            try:
+                gen_thumbnail(src, args.dst)
+            except Exception as e:
+                print(f'\nerr: {e}')
+            else:
+                print('ok!')
+        elif isdir(src):
+            for imgpath in iglob(f'{src}/*_p*.??g'):
+                print(f'processing {imgpath}', end=' ')
+                try:
+                    gen_thumbnail(imgpath, args.dst)
+                except Exception as e:
+                    print(f'\nerr: {e}')
+                else:
+                    print('ok!')
+
+
+if __name__ == '__main__':
+    main()

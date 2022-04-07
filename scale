@@ -3,6 +3,7 @@
 from argparse import ArgumentParser
 from imghdr import what
 from os import remove
+import os
 from pathlib import Path
 from PIL import Image
 from shutil import copy
@@ -35,7 +36,7 @@ def get_new_size(size: Size, h_size: int, v_size: int, max_size: int) -> Size:
     width, height = size
     if width > height:
         # 横版图 h_size 为准
-        if width < h_size:
+        if width < (h_size - 256):  # min h_size:
             new_height = round(h_size / width * height)
             return (h_size, new_height)
 
@@ -48,7 +49,7 @@ def get_new_size(size: Size, h_size: int, v_size: int, max_size: int) -> Size:
 
     else:
         # 竖版图以 v_size 为准
-        if height < v_size:
+        if height < (v_size - 256):  # min v_size:
             new_width = round(v_size / height * width)
             return (new_width, v_size)
 
@@ -84,6 +85,8 @@ def zoom(src_path: Path, h_size: int, v_size: int, max_size: int,
     '''缩放图片'''
     # 文件修改标识
     modified = False
+    # 读取原文件时间属性
+    filestat = os.stat(src_path)
 
     # 复制文件
     basename = src_path.name.rsplit('.')[0]
@@ -111,7 +114,7 @@ def zoom(src_path: Path, h_size: int, v_size: int, max_size: int,
     # 检查文件大小
     max_bytes = parse_bytes(args.bytes)
     if cp_path.stat().st_size > max_bytes:
-        print('    reducing file size', end='\r')
+        print('        size: jpg compress ', end='\r')
         # 保存为 jpg 文件
         temp_path = cp_path.parent.joinpath(f'.{basename}.jpg')
         Image.open(cp_path).convert('RGB').save(temp_path, optimize=True, quality=95)
@@ -128,7 +131,7 @@ def zoom(src_path: Path, h_size: int, v_size: int, max_size: int,
 
     if cover:
         if not modified:
-            remove(cp_path)
+            remove(cp_path)  # 原图无需修改时，直接删除复制的文件
             print(f'      keeped: {src_path}\n')
             return
         else:
@@ -144,6 +147,10 @@ def zoom(src_path: Path, h_size: int, v_size: int, max_size: int,
 
     print(f'      output: {dst_path}\n')
     cp_path.rename(dst_path)
+
+    # 复原文件的时间属性
+    if args.keep:
+        os.utime(dst_path, (filestat.st_atime, filestat.st_mtime))
 
 
 def main(args):
@@ -176,8 +183,9 @@ if __name__ == '__main__':
     parser.add_argument('-h', dest='h_size', type=int, default=5120, help='横版图的标准宽度 (默认值: %(default)s像素)')
     parser.add_argument('-v', dest='v_size', type=int, default=4096, help='竖版图的标准高度 (默认值: %(default)s像素)')
     parser.add_argument('-m', dest='max_size', type=int, default=8192, help='长边最大像素值 (默认值: %(default)s像素)')
-    parser.add_argument('-b', dest='bytes', type=str, default='5m', help='图像的最大体积 (默认值: %(default)s)')
+    parser.add_argument('-b', dest='bytes', type=str, default='6m', help='图像的最大体积 (默认值: %(default)s)')
     parser.add_argument('-c', dest='cover', action='store_true', help='是否覆盖原图 (默认值: %(default)s)')
+    parser.add_argument('-k', dest='keep', action='store_true', help='保持原文件时间信息 (默认值: %(default)s)')
     parser.add_argument('-t', dest='itype', choices='apA', default='A',
                         help='图像类型：a (anime) / p (photo) / A (auto), (默认值: %(default)s)')
     parser.add_argument('-n', dest='noise', choices='01234', default='3',
