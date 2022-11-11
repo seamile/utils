@@ -11,7 +11,7 @@ fi
 for dir in $dirs
 do
     if [ -d $dir ]; then
-        cnt=`find $dir -type file | wc -l`
+        cnt=`find $dir -name "[!.]*" -type file | wc -l`
         printf "%6s %s\n" $cnt $dir
     fi
 done
