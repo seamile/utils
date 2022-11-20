@@ -1,17 +1,57 @@
-#!/bin/bash
+#!/usr/bin/env python
 
-# list files of each dir
+import os
+from argparse import ArgumentParser
+from collections import Counter
 
-if [[ $# == 0 ]]; then
-    dirs=("./")
-else
-    dirs=$@
-fi
+parser = ArgumentParser('fcnt')
+parser.add_argument('-a', dest='all', action='store_true', help='all regular and hidden files')
+parser.add_argument('-d', dest='dir', action='store_true', help='count the number of directories')
+parser.add_argument('-r', dest='recursive', action='store_true', help='counting recursively')
+parser.add_argument(dest='directories', nargs='*', default=['./'])
 
-for dir in $dirs
-do
-    if [ -d $dir ]; then
-        cnt=`find $dir -name "[!.]*" -type file | wc -l`
-        printf "%6s %s\n" $cnt $dir
-    fi
-done
+
+def main():
+    counter = Counter()
+    args = parser.parse_args()
+    directories = list(filter(os.path.isdir, args.directories))
+
+    # traverse all the directories and count
+    for directory in directories:
+        k_dir = f'{directory}_dir'
+        k_file = f'{directory}_file'
+        for _, dirs, files in os.walk(directory):
+            if args.all:
+                counter[k_dir] += len(dirs)
+                counter[k_file] += len(files)
+            else:
+                counter[k_dir] += sum(1 for d in dirs if d[0] != '.')
+                counter[k_file] += sum(1 for f in files if f[0] != '.')
+            if not args.recursive:
+                break
+
+    # ouput the result
+    len_name = max(len(n) for n in ["Name"] + directories)
+    len_num = max(len(str(max(counter.values()))), 5)
+    if args.dir:
+        template = '{name:<%ds} {n_dir:>%dd} {n_file:>%dd}' % (len_name, len_num, len_num)
+        print('\033[1m%s %s %s\033[0m' % ("Name".center(len_name), "Dirs".rjust(len_num), "Files".rjust(len_num)))
+    else:
+        template = '{name:<%ds} {n_file:>%dd}' % (len_name, len_num)
+        print('\033[1m%s %s\033[0m' % ("Name".center(len_name), "Files".rjust(len_num)))
+
+    for directory in directories:
+        k_dir = f'{directory}_dir'
+        k_file = f'{directory}_file'
+        print(template.format(name=directory, n_dir=counter[k_dir], n_file=counter[k_file]))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        print('\033[31m\rfcnt: user abort.\033[0m')
+        exit(1)
+    except Exception as e:
+        print(f'\033[31mfcnt: {e}.\033[0m')
+        exit(2)
