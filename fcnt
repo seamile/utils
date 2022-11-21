@@ -68,27 +68,34 @@ def count_items(directories: list, with_hidden: bool, recursive: bool) -> Counte
     return counter
 
 
+def fit_cn_width(name: str, width: int):
+    length = width - len(name.encode('gb18030')) + len(name)
+    return name.ljust(length)
+
+
 def main():
     args = parser.parse_args()
     directories = list(filter(os.path.isdir, args.directories))
     counter = count_items(directories, args.all, args.recursive)
 
     # ouput the result
-    len_name = max(len(n) for n in ["Name"] + directories)
+    len_name = max(len(n.encode('gb18030')) for n in ["Name"] + directories)
     len_num = max(len(str(max(counter.values()))), 5)
     if args.dir:
-        template = '{name:<%ds} {n_dir:>%dd} {n_file:>%dd}' % (len_name, len_num, len_num)
+        template = '{name} {n_dir:>%dd} {n_file:>%dd}' % (len_num, len_num)
         color_print('%s %s %s' % ("Name".ljust(len_name), "Dirs".rjust(len_num), "Files".rjust(len_num)),
                     effect=Effect.bold)
     else:
-        template = '{name:<%ds} {n_file:>%dd}' % (len_name, len_num)
+        template = '{name} {n_file:>%dd}' % (len_num)
         color_print('%s %s' % ("Name".ljust(len_name), "Files".rjust(len_num)),
                     effect=Effect.bold)
 
     for directory in directories:
         k_dir = f'{directory}_dir'
         k_file = f'{directory}_file'
-        print(template.format(name=directory, n_dir=counter[k_dir], n_file=counter[k_file]))
+        print(template.format(name=fit_cn_width(directory, len_name),
+                              n_dir=counter[k_dir],
+                              n_file=counter[k_file]))
 
 
 if __name__ == '__main__':
