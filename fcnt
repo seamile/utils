@@ -6,9 +6,18 @@ from collections import Counter
 from enum import IntEnum
 
 parser = ArgumentParser('fcnt')
-parser.add_argument('-a', dest='all', action='store_true', help='all regular and hidden files')
-parser.add_argument('-d', dest='dir', action='store_true', help='count the number of directories')
-parser.add_argument('-r', dest='recursive', action='store_true', help='counting recursively')
+parser.add_argument('-a', dest='all', action='store_true',
+                    help='all regular and hidden files')
+
+parser.add_argument('-d', dest='dir', action='store_true',
+                    help='count the number of directories')
+
+parser.add_argument('-s', dest='size', action='store_true',
+                    help='count the size of files')
+
+parser.add_argument('-r', dest='recursive', action='store_true',
+                    help='counting recursively')
+
 parser.add_argument(dest='directories', nargs='*', default=['./'])
 
 
@@ -23,7 +32,6 @@ class Effect(IntEnum):
 
 
 class Color(IntEnum):
-    default = 99
     black = 30
     red = 31
     green = 32
@@ -40,6 +48,7 @@ class Color(IntEnum):
     bright_magenta = 95
     bright_cyan = 96
     bright_white = 97
+    default = 99
 
 
 def color_print(string,
@@ -50,21 +59,35 @@ def color_print(string,
     print(template % string)
 
 
-def count_items(directories: list, with_hidden: bool, recursive: bool) -> Counter:
-    '''traverse all the directories and count'''
+def intuitive_size(size):
+    '''TODO: make the size more intuitive'''
+    return size
+
+
+def count_items(directory: str, count_hidden: bool, recursive: bool,
+                count_size: bool) -> Counter:
+    '''traverse the directory and count'''
     counter = Counter()  # type: ignore
-    for directory in directories:
-        k_dir = f'{directory}_dir'
-        k_file = f'{directory}_file'
-        for _, dirs, files in os.walk(directory):
-            if with_hidden:
-                counter[k_dir] += len(dirs)
-                counter[k_file] += len(files)
-            else:
-                counter[k_dir] += sum(1 for d in dirs if d[0] != '.')
-                counter[k_file] += sum(1 for f in files if f[0] != '.')
-            if not recursive:
-                break
+
+    for root, dirs, files in os.walk(directory):
+        if count_hidden:
+            counter['files'] += len(files)
+            counter['dirs'] += len(dirs)
+            if count_size:
+                counter['size'] += sum(os.stat(os.path.join(root, f)).st_size
+                                       for f in files)
+        else:
+            counter['files'] += sum(1 for f in files if f[0] != '.')
+            counter['dirs'] += sum(1 for d in dirs if d[0] != '.')
+            if count_size:
+                counter['size'] += sum(os.stat(os.path.join(root, f)).st_size
+                                       for f in files if f[0] != '.')
+        if not recursive:
+            break
+
+    if count_size:
+        counter['size'] = intuitive_size(counter['size'])
+
     return counter
 
 
@@ -73,29 +96,51 @@ def fit_cn_width(name: str, width: int):
     return name.ljust(length)
 
 
+def count_column_width(count_result: dict, columns: list):
+    '''count the width of each column'''
+    width = []
+    # dir name width
+    names = list(count_result.keys()) + ["Name"]
+    width.append(max(len(n.encode('gb18030')) for n in names))
+
+    # columns' width: files, dirs, sizes
+    for column in columns:
+        max_value = max(cnt[column] for cnt in count_result.values())
+        width.append(max(len(str(max_value)), len(column)))
+    return width
+
+
 def main():
     args = parser.parse_args()
     directories = list(filter(os.path.isdir, args.directories))
-    counter = count_items(directories, args.all, args.recursive)
+    result = {}
+    for directory in directories:
+        result[directory] = count_items(directory, args.all,
+                                        args.recursive, args.size)
+
+    if not directories:
+        color_print('fcnt: not found any directory.', Color.red)
+        exit(3)
+
+    # count column width
+    columns = ['files']
+    if args.dir:
+        columns.append('dirs')
+    if args.size:
+        columns.append('size')
+    width = count_column_width(result, columns)
+
+    # joint the title and print
+    title = "name".ljust(width[0] + 1) \
+            + ' '.join(s.rjust(w) for s, w in zip(columns, width[1:]))
+    color_print(title, Color.yellow)
 
     # ouput the result
-    len_name = max(len(n.encode('gb18030')) for n in ["Name"] + directories)
-    len_num = max(len(str(max(counter.values()))), 5)
-    if args.dir:
-        template = '{name} {n_dir:>%dd} {n_file:>%dd}' % (len_num, len_num)
-        color_print('%s %s %s' % ("Name".ljust(len_name), "Dirs".rjust(len_num), "Files".rjust(len_num)),
-                    effect=Effect.bold)
-    else:
-        template = '{name} {n_file:>%dd}' % (len_num)
-        color_print('%s %s' % ("Name".ljust(len_name), "Files".rjust(len_num)),
-                    effect=Effect.bold)
-
     for directory in directories:
-        k_dir = f'{directory}_dir'
-        k_file = f'{directory}_file'
-        print(template.format(name=fit_cn_width(directory, len_name),
-                              n_dir=counter[k_dir],
-                              n_file=counter[k_file]))
+        line = fit_cn_width(directory, width[0] + 1) + \
+            ' '.join(str(result[directory][c]).rjust(w)
+                     for c, w in zip(columns, width[1:]))
+        print(line)
 
 
 if __name__ == '__main__':
