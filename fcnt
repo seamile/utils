@@ -3,6 +3,7 @@
 import os
 from argparse import ArgumentParser
 from collections import Counter
+from enum import IntEnum
 
 parser = ArgumentParser('fcnt')
 parser.add_argument('-a', dest='all', action='store_true', help='all regular and hidden files')
@@ -11,34 +12,78 @@ parser.add_argument('-r', dest='recursive', action='store_true', help='counting 
 parser.add_argument(dest='directories', nargs='*', default=['./'])
 
 
-def main():
-    counter = Counter()
-    args = parser.parse_args()
-    directories = list(filter(os.path.isdir, args.directories))
+class Effect(IntEnum):
+    default = 0
+    bold = 1
+    dark = 2
+    inverse = 3
+    underline = 4
+    blink = 5
+    hidden = 8
 
-    # traverse all the directories and count
+
+class Color(IntEnum):
+    default = 99
+    black = 30
+    red = 31
+    green = 32
+    yellow = 33
+    blue = 34
+    magenta = 35
+    cyan = 36
+    white = 37
+    grey = 90
+    bright_red = 91
+    bright_green = 92
+    bright_yellow = 93
+    bright_blue = 94
+    bright_magenta = 95
+    bright_cyan = 96
+    bright_white = 97
+
+
+def color_print(string,
+                color: Color = Color.default,
+                effect: Effect = Effect.default):
+    '''print the string with color'''
+    template = f'\033[{effect};{color}m%s\033[0m'
+    print(template % string)
+
+
+def count_items(directories: list, with_hidden: bool, recursive: bool) -> Counter:
+    '''traverse all the directories and count'''
+    counter = Counter()  # type: ignore
     for directory in directories:
         k_dir = f'{directory}_dir'
         k_file = f'{directory}_file'
         for _, dirs, files in os.walk(directory):
-            if args.all:
+            if with_hidden:
                 counter[k_dir] += len(dirs)
                 counter[k_file] += len(files)
             else:
                 counter[k_dir] += sum(1 for d in dirs if d[0] != '.')
                 counter[k_file] += sum(1 for f in files if f[0] != '.')
-            if not args.recursive:
+            if not recursive:
                 break
+    return counter
+
+
+def main():
+    args = parser.parse_args()
+    directories = list(filter(os.path.isdir, args.directories))
+    counter = count_items(directories, args.all, args.recursive)
 
     # ouput the result
     len_name = max(len(n) for n in ["Name"] + directories)
     len_num = max(len(str(max(counter.values()))), 5)
     if args.dir:
         template = '{name:<%ds} {n_dir:>%dd} {n_file:>%dd}' % (len_name, len_num, len_num)
-        print('\033[1m%s %s %s\033[0m' % ("Name".center(len_name), "Dirs".rjust(len_num), "Files".rjust(len_num)))
+        color_print('%s %s %s' % ("Name".ljust(len_name), "Dirs".rjust(len_num), "Files".rjust(len_num)),
+                    effect=Effect.bold)
     else:
         template = '{name:<%ds} {n_file:>%dd}' % (len_name, len_num)
-        print('\033[1m%s %s\033[0m' % ("Name".center(len_name), "Files".rjust(len_num)))
+        color_print('%s %s' % ("Name".ljust(len_name), "Files".rjust(len_num)),
+                    effect=Effect.bold)
 
     for directory in directories:
         k_dir = f'{directory}_dir'
@@ -50,8 +95,8 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print('\033[31m\rfcnt: user abort.\033[0m')
+        color_print('\rfcnt: user abort.', Color.red)
         exit(1)
     except Exception as e:
-        print(f'\033[31mfcnt: {e}.\033[0m')
+        color_print(f'fcnt: {e}.', Color.red)
         exit(2)
