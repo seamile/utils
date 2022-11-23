@@ -4,6 +4,7 @@ import os
 from argparse import ArgumentParser
 from collections import Counter
 from enum import IntEnum
+from math import ceil
 
 parser = ArgumentParser('fcnt')
 parser.add_argument('-a', dest='all', action='store_true',
@@ -59,6 +60,11 @@ def color_print(string,
     print(template % string)
 
 
+def get_size(filepath):
+    st = os.stat(filepath)
+    return ceil(st.st_size / st.st_blksize) * st.st_blksize
+
+
 def intuitive_size(size):
     '''make the size more intuitive'''
     for unit in ['B', 'K', 'M', 'G', 'T', 'P']:
@@ -80,13 +86,13 @@ def count_items(directory: str, count_hidden: bool, recursive: bool,
             counter['Files'] += len(files)
             counter['Dirs'] += len(dirs)
             if count_size:
-                counter['Size'] += sum(os.stat(os.path.join(root, f)).st_size
+                counter['Size'] += sum(get_size(os.path.join(root, f))
                                        for f in files)
         else:
             counter['Files'] += sum(1 for f in files if f[0] != '.')
             counter['Dirs'] += sum(1 for d in dirs if d[0] != '.')
             if count_size:
-                counter['Size'] += sum(os.stat(os.path.join(root, f)).st_size
+                counter['Size'] += sum(get_size(os.path.join(root, f))
                                        for f in files if f[0] != '.')
         if not recursive:
             break
