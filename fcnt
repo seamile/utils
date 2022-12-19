@@ -149,7 +149,7 @@ def main():
     # joint the title and print
     title = "Name".ljust(width[0] + 3) \
             + '   '.join(c.rjust(w) for c, w in zip(columns, width[1:]))
-    color_print(title, Color.yellow, Effect.underline)
+    color_print(title, Color.bright_yellow, Effect.underline)
 
     # ouput the result
     template = '   '.join(f'%({c}){w}s' for c, w in zip(columns, width[1:]))
