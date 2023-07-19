@@ -5,7 +5,7 @@
 	<key>Label</key>
 	<string>com.seamile.ssh-tunnel.plist</string>
 	<key>Program</key>
-    <string>/Users/xu/.local/bin/ssh-tunnel.sh</string>
+	<string>/Users/xu/.local/bin/ssh-tunnel.sh</string>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/Users/xu/.local/bin/ssh-tunnel.sh</string>

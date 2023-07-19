@@ -1,0 +1,60 @@
+#!/bin/bash
+# 大小关系: maxfiles >= maxfilesperproc >= ulimit
+
+# 解锁最大连接数
+function unlock_conn() {
+    sudo -H sysctl kern.ipc.somaxconn=65535
+}
+
+# 解锁最大文件数
+function unlock_files() {
+    launchctl limit maxfiles 65535
+    sudo -H sysctl kern.maxfiles=524280        # 全局最大文件数 (系统默认: 12288)
+    sudo -H sysctl kern.maxfilesperproc=65535  # 单个进程最大文件数 (系统默认: 10240)
+    ulimit -n unlimited
+}
+
+# 动态端口号范围 (系统默认: 49152 ~ 65535)
+function unlock_port() {
+    sudo -H sysctl net.inet.ip.portrange.first=10240
+    sudo -H sysctl net.inet.ip.portrange.last=65535
+}
+
+function help(){
+    echo 'Usage: uulimit [options]'
+    echo ''
+    echo 'options:'
+    echo '    -h  show help.'
+    echo '    -a  unlock all system limit.'
+    echo '    -c  unlock the max connections limit'
+    echo '    -f  unlock the max files limit'
+    echo '    -p  unlock the dynamic port range limit'
+}
+
+
+while getopts acfph option
+do
+    case $option in
+    a)
+        unlock_conn
+        unlock_files
+        unlock_port
+        ;;
+    c)
+        unlock_conn
+        ;;
+    f)
+        unlock_files
+        ;;
+    p)
+        unlock_port
+        ;;
+    h)
+        help
+        ;;
+    esac
+done
+
+if [[ "$#" == "0" ]]; then
+    help
+fi
