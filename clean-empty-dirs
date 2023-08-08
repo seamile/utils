@@ -1,54 +1,38 @@
 #!/bin/bash
 
-NOT_DELETE=flase
-TARGET=''
-
 RED="\033[0;31m"
-LRED="\033[1;31m"
-
-YELLOW="\033[1;33m"
 ORANGE="\033[0;33m"
-
 GRAY="\033[0;37m"
 END="\033[0m"
 
 
 if [[ $# == 0 ]]; then
-    echo "Usage: clean_empty_dir [-n] DIRECTORY"
-    exit 1
-elif [[ $# == 1 ]]; then
-    TARGET=$1
+    TARGET="."  # 无任何参数时，遍历选择当前目录
 else
-    if [[ "$1" == '-n' ]]; then
-        NOT_DELETE=true
-    fi
-    TARGET=$2
+    TARGET=$*
 fi
 
 
-if [[ ! -d $TARGET ]]; then
-    echo "$TARGET is not a valid directory."
-    exit 1
-fi
-
-
-function is_empty() {
-    if ls -A $1 | grep -v DS_Store > /dev/null; then
-        return 1
-    else
-        return 0
-    fi
-}
-
-
-for cur_dir in `find $TARGET -type d | sort -r`
+# 从指定的目录中查找空目录
+num=0
+for d in $(find $TARGET -type d -empty)
 do
-    if is_empty $cur_dir; then
-        if [[ $NOT_DELETE = true ]];then
-            printf "${ORANGE}EmptyDir: $cur_dir${END}\n"
-        else
-            printf "${LRED}Deleting: $cur_dir${END}\n"
-            rm -r $cur_dir
-        fi
+    if [[ "$d" != "." && "$d" != "./" ]];then
+        num=$[num + 1]
+        printf "$ORANGE %+3s  $d$END\n" $num
     fi
 done
+
+if [[ $num > 0 ]]; then
+    printf "${RED}Are you sure to delete these directories?$END (y/n) "
+    read DEL
+
+    if [[ "$DEL" == "y" || "$DEL" == "Y" ]];then
+        printf "Deleting...\n"
+        find $TARGET -type d -empty -delete  # 同样的命令，加上 -delete 参数
+    else
+        printf "Cancel\n"
+    fi
+else
+    printf "Not found any empty directories.\n"
+fi

@@ -8,10 +8,9 @@ function unlock_conn() {
 
 # 解锁最大文件数
 function unlock_files() {
-    launchctl limit maxfiles 65535
+    sudo -H launchctl limit maxfiles 65535
     sudo -H sysctl kern.maxfiles=524280        # 全局最大文件数 (系统默认: 12288)
     sudo -H sysctl kern.maxfilesperproc=65535  # 单个进程最大文件数 (系统默认: 10240)
-    ulimit -n unlimited
 }
 
 # 动态端口号范围 (系统默认: 49152 ~ 65535)
