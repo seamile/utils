@@ -9,5 +9,8 @@ do
         ext_name=`echo "${filename##*.}" | tr '[:upper:]' '[:lower:]'`
         new_name="`dirname $filename`/$hash_code.$ext_name"
         mv -nv $filename $new_name
+        if which xattr > /dev/null; then
+            xattr -w "OriginName" "$filename" $new_name
+        fi
     fi
 done
