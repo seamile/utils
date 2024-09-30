@@ -1,14 +1,35 @@
 #!/bin/bash
 
-# set filename with crc32
+FORCE=false
 
-for filename in $@
+# parse args
+while getopts 'fh' option
 do
-    if [[ -f $filename ]]; then
-        hash_code=`crc32 $filename|awk '{print $1}'`
+    case "$option" in
+        "f")
+            FORCE=true
+            ;;
+        "h")
+            echo 'Usage: crcname [-h] [-f] files...'
+            exit 0
+            ;;
+    esac
+done
+shift $((OPTIND-1))
+
+# set filename with crc32
+for filename in "$@"
+do
+    if [[ -f "$filename" ]]; then
+        hash_code=`crc32 "$filename"|awk '{print $1}'|tr '[:lower:]' '[:upper:]'`
         ext_name=`echo "${filename##*.}" | tr '[:upper:]' '[:lower:]'`
-        new_name="`dirname $filename`/$hash_code.$ext_name"
-        mv -nv $filename $new_name
+        new_name="`dirname "$filename"`/$hash_code.$ext_name"
+        if [[ $FORCE == false ]]; then
+            mv -nv "$filename" $new_name
+        else
+            mv -fv "$filename" $new_name
+        fi
+
         if which xattr > /dev/null; then
             xattr -w "OriginName" "$filename" $new_name
         fi

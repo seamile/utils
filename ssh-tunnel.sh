@@ -1,16 +1,11 @@
 #!/bin/bash
 
-if [[ "$1" == "-j" ]]; then
-    USER="alex"
-    SERVER="jmp"
-else
-    USER="alex"
-    SERVER="bee"
-fi
+USER="alex"
+SERVER="$1"
 
 while true
 do
-    echo "connecting $USER@$SERVER"
+    echo "connecting $SERVER"
     # ssh -qTnN -D 0.0.0.0:1086 $USER@$SERVER
     ssh -qTnN -D 0.0.0.0:1086 $SERVER
     echo 'retry after 1s ...'

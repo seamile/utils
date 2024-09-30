@@ -1,0 +1,44 @@
+#!/bin/bash
+
+OPEN=false
+
+while getopts ":ho" opt; do
+  case $opt in
+    h)
+        echo "Usage: fd [-o -h] kw1[,kw2,kw3,...] [dir1 dir2 dir3 ...]" && exit 0
+        ;;
+    o)
+        OPEN=true
+        ;;
+    \?)
+        echo "Usage: fd [-o -h] kw1[,kw2,kw3,...] [dir1 dir2 dir3 ...]" && exit 1
+        ;;
+  esac
+done
+
+shift $((OPTIND -1))
+
+[[ -z "$@" ]] && echo "Usage: fd [-o -h] kw1[,kw2,kw3,...] [dir1 dir2 dir3 ...]" && exit 1
+
+DIRS=$( [ -z "$2" ] && echo "." || echo "${@:2}" )
+KWARGS=$( echo $1 | tr "," "\n" )
+
+FILES=""
+for kw in $KWARGS; do
+    res=`find $DIRS -name "$kw*"`
+    if [ -n "$res" ]; then
+        FILES="$FILES $res"
+    else
+        RED='\033[1;31m'
+        YELLOW='\033[1;36m'
+        NC='\033[0m'
+        printf "${RED}Not found: ${YELLOW}$kw${NC}\n"
+    fi
+done
+
+if [ -n "$FILES" ]; then
+    ls -ilh $FILES
+    if [[ $OPEN == true ]]; then
+        open $FILES
+    fi
+fi
