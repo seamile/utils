@@ -21,7 +21,11 @@ shift $((OPTIND -1))
 [[ -z "$@" ]] && echo "Usage: fd [-o -h] kw1[,kw2,kw3,...] [dir1 dir2 dir3 ...]" && exit 1
 
 DIRS=$( [ -z "$2" ] && echo "." || echo "${@:2}" )
-KWARGS=$( echo $1 | tr "," "\n" )
+if [ -f $1 ]; then
+    KWARGS=$( < $1 )
+else
+    KWARGS=$( echo $1 | tr "," "\n" )
+fi
 
 FILES=""
 for kw in $KWARGS; do

@@ -2,7 +2,7 @@
 '''
 从标准输入中提取指定列，并输出到标准输出
 '''
-
+import os
 import itertools
 import shutil
 import sys
@@ -15,6 +15,7 @@ group = parser.add_mutually_exclusive_group()
 group.add_argument('-d', '--delete', action='store_true', help='删除输入文件')
 group.add_argument('-l', '--link', type=Path, help='链接输入文件到指定目录')
 group.add_argument('-m', '--move', type=Path, help='移动输入文件到指定目录')
+group.add_argument('-o', '--open', action='store_true', help='打开输入文件')
 parser.add_argument('--offset', type=int, default=0, help='从第几行开始提取')
 parser.add_argument('columns', type=str, help='要提取的列号，以逗号分隔')
 parser.add_argument('files', nargs='*', help='目标文件，默认为标准输入')
@@ -62,11 +63,12 @@ def read_fields(files: list[str], offset: int):
 def parse_columns(columns: str):
     '''解析要提取的列的索引'''
     try:
-        _columns = {int(col) - 1 for col in columns.split(',')}
-        if not all(col >= 0 for col in _columns):
-            raise ValueError
-        else:
-            return sorted(_columns)
+        indexes = []
+        for col in columns.split(','):
+            col = int(col.strip())
+            idx = (col - 1) if col > 0 else col
+            indexes.append(idx)
+        return indexes
     except ValueError:
         print(f'Invalid column: {columns}', file=sys.stderr)
         sys.exit(1)
@@ -88,7 +90,10 @@ def confirm(prompt: str) -> bool:
 
 
 def main():
-    args = parser.parse_args()
+    try:
+        args = parser.parse_args()
+    except SystemExit as e:
+        return e.code
 
     col_indexes = parse_columns(args.columns)  # 要提取的列的索引
     n_cols = len(col_indexes)
@@ -103,7 +108,7 @@ def main():
         line = '    '.join([field.ljust(col_lens[col]) for col, field in enumerate(fields)])
         print(line)
 
-    paths = (Path(item) for item in itertools.chain(*rows))
+    paths = (Path(item.strip()) for item in itertools.chain(*rows) if item.strip())
 
     if args.delete:
         if confirm('Are you sure to delete above files or directories ?'):
@@ -124,7 +129,7 @@ def main():
                     if path.is_file():
                         try:
                             target = args.link / path.name
-                            print(f'linking file: {path} -> {target}')
+                            print(f'linking: {target} => {path}')
                             target.hardlink_to(path)
                         except OSError as e:
                             print(e, file=sys.stderr)
@@ -140,6 +145,8 @@ def main():
                 for path in paths:
                     if path.is_file() or path.is_dir():
                         try:
+                            target = args.move / path.name
+                            print(f'moving: {path} -> {target}')
                             path.rename(args.move / path.name)
                         except OSError as e:
                             print(f'Move "{path}" failed: {e}', file=sys.stderr)
@@ -148,6 +155,13 @@ def main():
         else:
             print(f'Invalid directory: {args.move}', file=sys.stderr)
             sys.exit(1)
+    elif args.open:
+        fpaths = [path.as_posix() for path in paths if path.is_file()]
+        count = len(fpaths)
+        if count == 0:
+            print('No file to open', file=sys.stderr)
+        elif count <= 30 or confirm(f'Are you sure to open {count} files ?'):
+            os.system(f'open {" ".join(fpaths)}')
 
 
 if __name__ == '__main__':
