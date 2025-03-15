@@ -64,8 +64,8 @@ def parse_columns(columns: str):
     '''解析要提取的列的索引'''
     try:
         indexes = []
-        for col in columns.split(','):
-            col = int(col.strip())
+        for _col in columns.split(','):
+            col = int(_col.strip())
             idx = (col - 1) if col > 0 else col
             indexes.append(idx)
         return indexes

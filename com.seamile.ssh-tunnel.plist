@@ -9,7 +9,7 @@
 	<key>ProgramArguments</key>
 	<array>
 		<string>/Users/xu/.local/bin/ssh-tunnel.sh</string>
-		<string>hornet</string>
+		<string>bee</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>

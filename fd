@@ -1,24 +1,28 @@
 #!/bin/bash
 
 OPEN=false
+DELETE=false
 
-while getopts ":ho" opt; do
+while getopts ":dhor:" opt; do
   case $opt in
-    h)
-        echo "Usage: fd [-o -h] kw1[,kw2,kw3,...] [dir1 dir2 dir3 ...]" && exit 0
+    d)
+        DELETE=true
         ;;
+
     o)
         OPEN=true
         ;;
-    \?)
-        echo "Usage: fd [-o -h] kw1[,kw2,kw3,...] [dir1 dir2 dir3 ...]" && exit 1
+    r)
+        RENAME=$OPTARG
+        ;;
+    *)
+        echo "Usage: fd [-d -o -h] [-r RENAME] kw1[,kw2,kw3,...] [dir1 dir2 dir3 ...]" && exit 0
         ;;
   esac
 done
-
 shift $((OPTIND -1))
 
-[[ -z "$@" ]] && echo "Usage: fd [-o -h] kw1[,kw2,kw3,...] [dir1 dir2 dir3 ...]" && exit 1
+[[ -z "$@" ]] && echo "Usage: fd [-d -o -h] [-r RENAME] kw1[,kw2,kw3,...] [dir1 dir2 dir3 ...]" && exit 1
 
 DIRS=$( [ -z "$2" ] && echo "." || echo "${@:2}" )
 if [ -f $1 ]; then
@@ -29,7 +33,7 @@ fi
 
 FILES=""
 for kw in $KWARGS; do
-    res=`find $DIRS -name "$kw*"`
+    res=`find $DIRS -type f -name "$kw*"`
     if [ -n "$res" ]; then
         FILES="$FILES $res"
     else
@@ -44,5 +48,21 @@ if [ -n "$FILES" ]; then
     ls -ilh $FILES
     if [[ $OPEN == true ]]; then
         open $FILES
+    elif [[ $DELETE == true ]]; then
+        read -p "Delete these files? [y/n] " -n 1 -r REPLY
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            rm -v $FILES
+        fi
+    elif [[ -n "$RENAME" ]]; then
+        read -p "Rename these files? [y/n] " -n 1 -r REPLY
+        echo
+        if [[  $REPLY =~ ^[Yy]$ ]]; then
+            for f in $FILES; do
+                parent=$(dirname $f)
+                fullpath="$parent/$RENAME"
+                mv -v $f $fullpath
+            done
+        fi
     fi
 fi

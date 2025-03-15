@@ -3,6 +3,7 @@
 import sys
 from argparse import ArgumentParser
 from os.path import exists
+from typing import Any
 
 from PIL import Image, UnidentifiedImageError
 
@@ -16,7 +17,7 @@ parser.add_argument('output', help='要创建的GIF文件名')
 parser.add_argument('images', nargs='+', help='用来制作GIF的原图片，按顺序添加')
 args = parser.parse_args()
 
-kwargs = {'save_all': True}
+kwargs: dict[str, Any] = {'save_all': True}
 
 
 # 读取图片列表
