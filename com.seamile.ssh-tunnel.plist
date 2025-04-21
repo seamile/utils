@@ -3,12 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>Label</key>
-	<string>com.seamile.ssh-tunnel.plist</string>
-	<key>Program</key>
-	<string>/Users/xu/.local/bin/ssh-tunnel.sh</string>
+	<string>com.seamile.SSH-Tunnel</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/Users/xu/.local/bin/ssh-tunnel.sh</string>
+		<string>/Users/xu/.local/utils/ssh-tunnel.sh</string>
+		<string>-s</string>
 		<string>bee</string>
 	</array>
 	<key>RunAtLoad</key>

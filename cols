@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
-'''
-从标准输入中提取指定列，并输出到标准输出
-'''
-import os
+"""从标准输入中提取指定列，并输出到标准输出"""
+
 import itertools
+import os
+import re
 import shutil
 import sys
 from argparse import ArgumentParser
+from collections import UserList
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional
+
+# 浮点或整型的正则
+NUM_PATTERN = re.compile(r'[-+]?\d+(\.\d+)?')
 
 parser = ArgumentParser()
 group = parser.add_mutually_exclusive_group()
@@ -16,15 +20,16 @@ group.add_argument('-d', '--delete', action='store_true', help='删除输入文�
 group.add_argument('-l', '--link', type=Path, help='链接输入文件到指定目录')
 group.add_argument('-m', '--move', type=Path, help='移动输入文件到指定目录')
 group.add_argument('-o', '--open', action='store_true', help='打开输入文件')
+group.add_argument('-s', '--sum', action='store_true', help='输出每列的和')
 parser.add_argument('--offset', type=int, default=0, help='从第几行开始提取')
 parser.add_argument('columns', type=str, help='要提取的列号，以逗号分隔')
 parser.add_argument('files', nargs='*', help='目标文件，默认为标准输入')
 
 
-class DefaultList(list):
-    '''与 defaultdict 类似的支持动态创建默认值的 list'''
+class DefaultList(UserList):
+    """与 defaultdict 类似的支持动态创建默认值的 list"""
 
-    def __init__(self, iterable=(), default_factory: Optional[Callable] = None):
+    def __init__(self, iterable=(), default_factory: Callable | None = None):
         super().__init__(iterable)
         self.default_factory = default_factory
 
@@ -45,7 +50,7 @@ class DefaultList(list):
 
 
 def read_fields(files: list[str], offset: int):
-    '''读取文件，返回每行的字段列表'''
+    """读取文件，返回每行的字段列表"""
     if not files:
         for n_row, line in enumerate(sys.stdin):
             if n_row >= offset:
@@ -53,7 +58,7 @@ def read_fields(files: list[str], offset: int):
     else:
         n_row = 0
         for file in files:
-            with open(file, 'r') as fp:
+            with open(file) as fp:
                 for line in fp:
                     if n_row >= offset:
                         yield DefaultList(line.split(), default_factory=str)
@@ -61,7 +66,7 @@ def read_fields(files: list[str], offset: int):
 
 
 def parse_columns(columns: str):
-    '''解析要提取的列的索引'''
+    """解析要提取的列的索引"""
     try:
         indexes = []
         for _col in columns.split(','):
@@ -75,21 +80,21 @@ def parse_columns(columns: str):
 
 
 def confirm(prompt: str) -> bool:
-    '''从终端获取用户确认'''
+    """从终端获取用户确认"""
     try:
         print(f'{prompt} (y/n): ', file=sys.stderr, end='', flush=True)
         with open('/dev/tty') as tty:
             response = tty.readline().strip().lower()
             return response == 'y' or response == 'yes'
-    except IOError:
+    except OSError:
         print("can't open tty", file=sys.stderr)
         return False
     except KeyboardInterrupt:
-        print("user cancel", file=sys.stderr)
+        print('user cancel', file=sys.stderr)
         return False
 
 
-def main():
+def main():  # noqa: C901
     try:
         args = parser.parse_args()
     except SystemExit as e:
@@ -102,7 +107,7 @@ def main():
         print('No data', file=sys.stderr)
         sys.exit(1)
 
-    col_lens = [max([len(row[i]) for row in rows]) for i in range(n_cols)]
+    col_lens = [max(len(row[i]) for row in rows) for i in range(n_cols)]
 
     for fields in rows:
         line = '    '.join([field.ljust(col_lens[col]) for col, field in enumerate(fields)])
@@ -161,7 +166,18 @@ def main():
         if count == 0:
             print('No file to open', file=sys.stderr)
         elif count <= 30 or confirm(f'Are you sure to open {count} files ?'):
-            os.system(f'open {" ".join(fpaths)}')
+            os.system(f'open {" ".join(fpaths)}')  # noqa: S605
+    elif args.sum:
+        result = [0.0 for _ in range(n_cols)]
+        for row in rows:
+            # 提取每列中的数字, 如果某一列的值非数字则记作 0，然后对每一列的数字求和，逐列打印结果
+            for i, col in enumerate(row):
+                if matched := NUM_PATTERN.search(col):
+                    result[i] += float(matched.group())
+        # 每列求和结果保留 1 位小数, 如果小数点后面是 0 则省略
+        result = [f'{value:.1f}' if value % 1 else str(int(value)) for value in result]
+        print()
+        print('Sum:', *result, sep='\t')
 
 
 if __name__ == '__main__':

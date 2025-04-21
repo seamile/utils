@@ -12,16 +12,20 @@ else
     TARGET=$*
 fi
 
+# 删除 .DS_Store 文件
+find $TARGET -type f -name .DS_Store -delete
+
 
 # 从指定的目录中查找空目录
 num=0
-for d in $(find $TARGET -type d -empty)
-do
+while IFS= read -r d; do
     if [[ "$d" != "." && "$d" != "./" ]];then
         num=$[num + 1]
-        printf "$ORANGE %+3s  $d$END\n" $num
+        printf "$ORANGE %3d  $d$END\n" $num
     fi
-done
+done < <(find $TARGET -type d -empty)
+
+echo
 
 if [[ $num > 0 ]]; then
     printf "${RED}Are you sure to delete these directories?$END (y/n) "
