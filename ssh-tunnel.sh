@@ -80,7 +80,7 @@ done
 shift $((OPTIND-1))
 
 trap "echo 'Reconnecting...'" HUP
-trap "disconnect" INT TERM
+trap "disconnect; exit 0" INT TERM
 
 if [ ! -f $ENVFILE ]; then
     set_server bee
