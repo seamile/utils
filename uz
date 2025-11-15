@@ -23,8 +23,8 @@ decompress() {
         tar -xjvf $1;;
     zip)
         unzip $1;;
-    7-zip|rar)
-        7z x $1;;
+    7-zip|pe32|rar)
+        7z x -mmt=16 $1;;
     *)
         fileinfo=`file $1`
         echo "uz: unknow compress method: $fileinfo"

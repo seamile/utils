@@ -20,7 +20,7 @@ function connect() {
         exit 0
     else
         echo "Connecting to server '$SERVER'"
-        ssh -qTnN -D 0.0.0.0:1086 $USER@$SERVER
+        ssh -qTnN -D 0.0.0.0:1086 $SERVER
     fi
 }
 

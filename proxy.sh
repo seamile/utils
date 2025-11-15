@@ -5,6 +5,7 @@
 PAC_URL="https://seamile.cn/static/sweety.pac"
 SOCKS_HOST="127.0.0.1"
 SOCKS_PORT=1086
+HTTPS_PORT=1087
 DEVICE="" # 联网设备
 REMOTE_HOST="bee" # 远程主机
 

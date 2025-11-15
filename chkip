@@ -4,10 +4,12 @@ import os
 import re
 import socket
 import sys
+from os.path import abspath, dirname, join
 
 from IP2Location import IP2Location
 
-DB_PATH = os.environ.get('IP2DB_PATH', '')
+default = join(dirname(abspath(__file__)), 'IP2LOCATION-LITE-DB11.BIN')
+DB_PATH = os.environ.get('IP2DB_PATH', default)
 
 if os.path.isfile(DB_PATH):
     ip2loc = IP2Location(DB_PATH)

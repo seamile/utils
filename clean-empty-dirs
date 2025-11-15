@@ -1,6 +1,6 @@
 #!/bin/bash
 
-RED="\033[0;31m"
+RED="\033[1;31m"
 ORANGE="\033[0;33m"
 GRAY="\033[0;37m"
 END="\033[0m"
@@ -21,7 +21,7 @@ num=0
 while IFS= read -r d; do
     if [[ "$d" != "." && "$d" != "./" ]];then
         num=$[num + 1]
-        printf "$ORANGE %3d  $d$END\n" $num
+        printf "$ORANGE%2d  $d$END\n" $num
     fi
 done < <(find $TARGET -type d -empty)
 
@@ -29,13 +29,13 @@ echo
 
 if [[ $num > 0 ]]; then
     printf "${RED}Are you sure to delete these directories?$END (y/n) "
-    read DEL
+    read -n 1 DEL
 
     if [[ "$DEL" == "y" || "$DEL" == "Y" ]];then
-        printf "Deleting...\n"
+        printf "\nDeleting...\n"
         find $TARGET -type d -empty -delete  # 同样的命令，加上 -delete 参数
     else
-        printf "Cancel\n"
+        printf "\nCancel\n"
     fi
 else
     printf "Not found any empty directories.\n"

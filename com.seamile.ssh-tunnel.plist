@@ -6,7 +6,7 @@
 	<string>com.seamile.SSH-Tunnel</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/Users/xu/.local/utils/ssh-tunnel.sh</string>
+		<string>/Users/xu/.local/utils/tunnel.sh</string>
 		<string>-s</string>
 		<string>bee</string>
 	</array>
