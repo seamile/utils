@@ -1,66 +1,96 @@
 #!/usr/bin/env python
 
+import ipaddress
 import os
-import re
 import socket
 import sys
 from os.path import abspath, dirname, join
 
 from IP2Location import IP2Location
 
-default = join(dirname(abspath(__file__)), 'IP2LOCATION-LITE-DB11.BIN')
-DB_PATH = os.environ.get('IP2DB_PATH', default)
+DB_DIR = os.environ.get('IP2DB_PATH', dirname(abspath(__file__)))
 
-if os.path.isfile(DB_PATH):
-    ip2loc = IP2Location(DB_PATH)
-else:
-    print("\033[91mNot found the IP2Location DB file.\033[0m\n"
-          "You can download it from 'https://lite.ip2location.com/database-download'")
+DB_V4_PATH = join(DB_DIR, 'IP2LOCATION-LITE-DB11.BIN')
+DB_V6_PATH = join(DB_DIR, 'IP2LOCATION-LITE-DB11.IPV6.BIN')
+
+ip2loc_v4 = None
+ip2loc_v6 = None
+
+if os.path.isfile(DB_V4_PATH):
+    ip2loc_v4 = IP2Location(DB_V4_PATH)
+
+if os.path.isfile(DB_V6_PATH):
+    ip2loc_v6 = IP2Location(DB_V6_PATH)
+
+if not ip2loc_v4 and not ip2loc_v6:
+    print(
+        '\033[91mNot found any IP2Location DB file.\033[0m\n'
+        f"Please put DB files in '{DB_DIR}' or set IP2DB_PATH environment variable.\n"
+        "You can download them from 'https://lite.ip2location.com/database-download'"
+    )
     sys.exit(1)
 
 
 def print_err(host, msg):
-    '''打印错误信息'''
-    err_info = f'{host:15s} -> {msg}'
-    print('\033[91m%s\033[0m' % err_info)
+    """打印错误信息"""
+    err_info = f'{host:<40s} -> {msg}'
+    print(f'\033[91m{err_info}\033[0m')
 
 
-def is_ip(addr):
-    '''检查是否时 IP 地址'''
-    IP_PATTERN = (r'^(2(5[0-5]|[0-4]\d)|1\d\d|[1-9]\d|\d)'
-                  r'(\.(2(5[0-5]|[0-4]\d)|1\d\d|[1-9]\d|\d)){3}$')
-    return True if re.match(IP_PATTERN, addr) else False
-
-
-def dns(host):
-    '''获取 IP 地址'''
+def get_ips(host):
+    """获取 IP 地址 (v4 和 v6)"""
+    ips = []
     try:
         for family, *_, addr in socket.getaddrinfo(host, None):
-            if family == socket.AF_INET:
-                return addr[0]
-    except socket.error as e:
+            if family in (socket.AF_INET, socket.AF_INET6):
+                ips.append(addr[0])
+    except socket.gaierror as e:
         print_err(host, e)
+    return sorted(set(ips))
 
 
 def chk_ip(ip: str):
-    '''检查 IP'''
-    result = ip2loc.get_all(ip)
-    addr = f'[{result.country_short}] {result.region} / {result.city}'
-    print(f'{ip:15s} -> {addr}')
+    """检查 IP"""
+    try:
+        addr = ipaddress.ip_address(ip)
+        result = None
+        if addr.version == 6:
+            if ip2loc_v6:
+                result = ip2loc_v6.get_all(ip)
+            else:
+                print_err(ip, 'IPv6 database not loaded.')
+                return
+        elif addr.version == 4:
+            if ip2loc_v4:
+                result = ip2loc_v4.get_all(ip)
+            else:
+                print_err(ip, 'IPv4 database not loaded.')
+                return
+
+        if result and result.country_short:
+            addr_info = f'[{result.country_short}] {result.region} / {result.city}'
+            print(f'{ip:<40s} -> {addr_info}')
+        else:
+            print_err(ip, 'Location not found in database.')
+
+    except ValueError:
+        print_err(ip, 'Invalid IP address format.')
+    except Exception as e:
+        print_err(ip, str(e))
 
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
-        for ip in sys.argv[1:]:
+        for host in sys.argv[1:]:
             try:
-                if not is_ip(ip):
-                    ip = dns(ip)
-                    if ip is None:
-                        continue
-                chk_ip(ip)
+                ips = get_ips(host)
+                if not ips:
+                    continue
+                for ip in ips:
+                    chk_ip(ip)
             except KeyboardInterrupt:
                 print('\nchkip: user abort.')
                 sys.exit(1)
     else:
-        print('usage: chkip IP1 [IP2 IP3 ...]')
+        print('usage: chkip HOST1 [HOST2 HOST3 ...]')
         sys.exit(1)
