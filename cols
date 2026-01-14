@@ -5,6 +5,7 @@ import itertools
 import os
 import re
 import shutil
+import subprocess
 import sys
 from argparse import ArgumentParser
 from collections import UserList
@@ -17,12 +18,15 @@ NUM_PATTERN = re.compile(r'[-+]?\d+(\.\d+)?')
 parser = ArgumentParser()
 group = parser.add_mutually_exclusive_group()
 group.add_argument('-d', '--delete', action='store_true', help='删除输入文件')
-group.add_argument('-l', '--link', type=Path, help='链接输入文件到指定目录')
 group.add_argument('-m', '--move', type=Path, help='移动输入文件到指定目录')
+group.add_argument('-l', '--link', type=Path, help='链接输入文件到指定目录')
+group.add_argument('-s', '--symlink', type=Path, help='创建输入文件的软链接到指定目录')
 group.add_argument('-o', '--open', action='store_true', help='打开输入文件')
-group.add_argument('-s', '--sum', action='store_true', help='输出每列的和')
-parser.add_argument('--offset', type=int, default=0, help='从第几行开始提取')
-parser.add_argument('columns', type=str, help='要提取的列号，以逗号分隔')
+group.add_argument('-S', '--sum', action='store_true', help='输出每列的和')
+parser.add_argument('--start-line', type=int, default=0, help='从第几行开始提取')
+parser.add_argument('-F', '--separator', help='指定字段分隔符，默认为空白字符')
+parser.add_argument('-J', '--join', help='使用指定的连接符合并提取的列')
+parser.add_argument('columns', type=str, help='要提取的列号，以逗号分隔，支持 start:stop 语法')
 parser.add_argument('files', nargs='*', help='目标文件，默认为标准输入')
 
 
@@ -34,49 +38,69 @@ class DefaultList(UserList):
         self.default_factory = default_factory
 
     def _get_default(self):
-        return None if self.default_factory is None else self.default_factory()
+        return "" if self.default_factory is None else self.default_factory()
 
     def __getitem__(self, index):
+        if isinstance(index, slice):
+            return self.data[index]
         try:
             return super().__getitem__(index)
         except IndexError:
             length = len(self)
             if index >= 0:
                 self.extend([self._get_default() for _ in range(index + 1 - length)])
-            elif index < 0:
-                for _ in range(-index - length):
-                    self.insert(0, self._get_default())
-            return super().__getitem__(index)
+                return super().__getitem__(index)
+            return self._get_default()
 
 
-def read_fields(files: list[str], offset: int):
+def read_fields(files: list[str], start_line: int, separator: str | None):
     """读取文件，返回每行的字段列表"""
-    if not files:
-        for n_row, line in enumerate(sys.stdin):
-            if n_row >= offset:
-                yield DefaultList(line.split(), default_factory=str)
-    else:
-        n_row = 0
-        for file in files:
-            with open(file) as fp:
-                for line in fp:
-                    if n_row >= offset:
-                        yield DefaultList(line.split(), default_factory=str)
-                    n_row += 1
+    def _gen():
+        if not files:
+            yield from sys.stdin
+        else:
+            for file in files:
+                try:
+                    with open(file) as fp:
+                        yield from fp
+                except OSError as e:
+                    print(f'Error reading {file}: {e}', file=sys.stderr)
+
+    for n_row, line in enumerate(_gen()):
+        if n_row >= start_line:
+            fields = line.strip().split(separator)
+            yield DefaultList(fields, default_factory=str)
 
 
 def parse_columns(columns: str):
-    """解析要提取的列的索引"""
-    try:
-        indexes = []
-        for _col in columns.split(','):
-            col = int(_col.strip())
-            idx = (col - 1) if col > 0 else col
-            indexes.append(idx)
-        return indexes
-    except ValueError:
-        print(f'Invalid column: {columns}', file=sys.stderr)
-        sys.exit(1)
+    """解析要提取的列的规范（支持整数和 start:stop 切片）"""
+    specs = []
+    for part in columns.split(','):
+        part = part.strip()
+        if ':' in part:
+            bits = part.split(':')
+            if len(bits) == 2:
+                start_s, stop_s = bits
+                start = int(start_s) if start_s else None
+                stop = int(stop_s) if stop_s else None
+
+                # 1-based -> 0-based
+                # Python: 3:6 -> indices 2, 3, 4 (cols 3, 4, 5)
+                s = (start - 1) if (start is not None and start > 0) else start
+                e = (stop - 1) if (stop is not None and stop > 0) else stop
+                specs.append(slice(s, e))
+            else:
+                print(f'Invalid slice format: {part}', file=sys.stderr)
+                sys.exit(1)
+        else:
+            try:
+                col = int(part)
+                idx = (col - 1) if col > 0 else col
+                specs.append(idx)
+            except ValueError:
+                print(f'Invalid column: {part}', file=sys.stderr)
+                sys.exit(1)
+    return specs
 
 
 def confirm(prompt: str) -> bool:
@@ -85,47 +109,67 @@ def confirm(prompt: str) -> bool:
         print(f'{prompt} (y/n): ', file=sys.stderr, end='', flush=True)
         with open('/dev/tty') as tty:
             response = tty.readline().strip().lower()
-            return response == 'y' or response == 'yes'
+            return response in ('y', 'yes')
     except OSError:
         print("can't open tty", file=sys.stderr)
         return False
     except KeyboardInterrupt:
-        print('user cancel', file=sys.stderr)
-        return False
+        print('\nuser cancel', file=sys.stderr)
+        sys.exit(1)
 
 
-def main():  # noqa: C901
+def main():
     try:
         args = parser.parse_args()
     except SystemExit as e:
         return e.code
 
-    col_indexes = parse_columns(args.columns)  # 要提取的列的索引
-    n_cols = len(col_indexes)
-    rows = [[fields[col] for col in col_indexes] for fields in read_fields(args.files, args.offset)]
+    specs = parse_columns(args.columns)
+
+    rows = []
+    for fields in read_fields(args.files, args.start_line, args.separator):
+        row = []
+        for spec in specs:
+            if isinstance(spec, int):
+                row.append(fields[spec])
+            else:
+                row.extend(fields[spec])
+        rows.append(row)
+
     if not rows:
         print('No data', file=sys.stderr)
         sys.exit(1)
 
-    col_lens = [max(len(row[i]) for row in rows) for i in range(n_cols)]
+    # 如果指定了连接符，则合并列并更新 rows
+    if args.join is not None:
+        rows = [[args.join.join(row)] for row in rows]
+        # 直接打印，无需对齐
+        for row in rows:
+            print(row[0])
+    else:
+        # 对齐所有行的列数，确保计算列宽和求和时不会越界
+        n_cols = max(len(row) for row in rows)
+        for row in rows:
+            if len(row) < n_cols:
+                row.extend([''] * (n_cols - len(row)))
 
-    for fields in rows:
-        line = '    '.join([field.ljust(col_lens[col]) for col, field in enumerate(fields)])
-        print(line)
+        col_lens = [max(len(row[i]) for row in rows) for i in range(n_cols)]
 
-    paths = (Path(item.strip()) for item in itertools.chain(*rows) if item.strip())
+        for fields in rows:
+            line = '    '.join([field.ljust(col_lens[col]) for col, field in enumerate(fields)])
+            print(line.rstrip())
+
+    paths = [Path(item.strip()) for item in itertools.chain(*rows) if item.strip()]
 
     if args.delete:
         if confirm('Are you sure to delete above files or directories ?'):
             for path in paths:
                 if path.is_dir():
                     print(f'deleting dir : {path}')
-                    shutil.rmtree(path)
-                elif path.is_file():
+                    shutil.rmtree(path, ignore_errors=True)
+                elif path.exists() or path.is_symlink():
                     print(f'deleting file: {path}')
                     path.unlink()
-                else:
-                    print(f'Invalid path: {path}', file=sys.stderr)
 
     elif args.link:
         if args.link.is_dir():
@@ -138,46 +182,63 @@ def main():  # noqa: C901
                             target.hardlink_to(path)
                         except OSError as e:
                             print(e, file=sys.stderr)
-                    else:
-                        print(f'The "{path}" is not a file', file=sys.stderr)
         else:
             print(f'Invalid directory: {args.link}', file=sys.stderr)
+            sys.exit(1)
+
+    elif args.symlink:
+        if args.symlink.is_dir():
+            if confirm(f'Are you sure to symlink these files into "{args.symlink}" ?'):
+                for path in paths:
+                    if path.exists():
+                        try:
+                            target = args.symlink / path.name
+                            print(f'symlinking: {target} -> {path}')
+                            target.symlink_to(path.absolute())
+                        except OSError as e:
+                            print(e, file=sys.stderr)
+        else:
+            print(f'Invalid directory: {args.symlink}', file=sys.stderr)
             sys.exit(1)
 
     elif args.move:
         if args.move.is_dir():
             if confirm(f'Are you sure to move these files into "{args.move}" ?'):
                 for path in paths:
-                    if path.is_file() or path.is_dir():
+                    if path.exists():
                         try:
                             target = args.move / path.name
                             print(f'moving: {path} -> {target}')
-                            path.rename(args.move / path.name)
+                            shutil.move(str(path), str(target))
                         except OSError as e:
                             print(f'Move "{path}" failed: {e}', file=sys.stderr)
-                    else:
-                        print(f'The "{path}" is not file or directory', file=sys.stderr)
         else:
             print(f'Invalid directory: {args.move}', file=sys.stderr)
             sys.exit(1)
+
     elif args.open:
-        fpaths = [path.as_posix() for path in paths if path.is_file()]
+        fpaths = [path.as_posix() for path in paths if path.exists()]
         count = len(fpaths)
         if count == 0:
             print('No file to open', file=sys.stderr)
         elif count <= 30 or confirm(f'Are you sure to open {count} files ?'):
-            os.system(f'open {" ".join(fpaths)}')  # noqa: S605
+            # 使用 subprocess 避免 shell 注入风险
+            cmd = ['open'] if sys.platform == 'darwin' else ['xdg-open']
+            try:
+                subprocess.run(cmd + fpaths, check=False)
+            except OSError as e:
+                print(f"Failed to open files: {e}", file=sys.stderr)
+
     elif args.sum:
         result = [0.0 for _ in range(n_cols)]
         for row in rows:
-            # 提取每列中的数字, 如果某一列的值非数字则记作 0，然后对每一列的数字求和，逐列打印结果
             for i, col in enumerate(row):
                 if matched := NUM_PATTERN.search(col):
                     result[i] += float(matched.group())
-        # 每列求和结果保留 1 位小数, 如果小数点后面是 0 则省略
-        result = [f'{value:.1f}' if value % 1 else str(int(value)) for value in result]
+        # 格式化输出：保留一位小数，如果是整数则不显示小数点
+        result_strs = [f'{value:.1f}' if value % 1 else str(int(value)) for value in result]
         print()
-        print('Sum:', *result, sep='\t')
+        print('Sum:', *result_strs, sep='\t')
 
 
 if __name__ == '__main__':
