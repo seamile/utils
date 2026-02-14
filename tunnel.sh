@@ -83,7 +83,7 @@ trap "echo 'Reconnecting...'" HUP
 trap "disconnect; exit 0" INT TERM
 
 if [ ! -f $ENVFILE ]; then
-    set_server bee
+    set_server bat6
 fi
 
 while true; do
