@@ -8,7 +8,7 @@
 	<array>
 		<string>/Users/xu/.local/utils/tunnel.sh</string>
 		<string>-s</string>
-		<string>bat6</string>
+		<string>bat</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>

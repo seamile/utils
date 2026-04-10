@@ -2,6 +2,6 @@
 
 # download by server
 
-ssh bee "wget $1 -O /tmp/$2"
-scp bee:/tmp/$2 $2
-ssh bee "rm /tmp/$2"
+ssh bat "wget $1 -O /tmp/$2"
+scp bat:/tmp/$2 $2
+ssh bat "rm /tmp/$2"
