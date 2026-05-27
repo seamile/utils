@@ -10,8 +10,8 @@ from IP2Location import IP2Location
 
 DB_DIR = os.environ.get('IP2DB_PATH', dirname(abspath(__file__)))
 
-DB_V4_PATH = join(DB_DIR, 'IP2LOCATION-LITE-DB11.BIN')
-DB_V6_PATH = join(DB_DIR, 'IP2LOCATION-LITE-DB11.IPV6.BIN')
+DB_V4_PATH = join(DB_DIR, 'IP2LOCATION-LITE-DB5.BIN')
+DB_V6_PATH = join(DB_DIR, 'IP2LOCATION-LITE-DB5.IPV6.BIN')
 
 ip2loc_v4 = None
 ip2loc_v6 = None

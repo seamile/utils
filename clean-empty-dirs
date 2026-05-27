@@ -2,41 +2,59 @@
 
 RED="\033[1;31m"
 ORANGE="\033[0;33m"
-GRAY="\033[0;37m"
+GREEN="\033[0;32m"
 END="\033[0m"
 
+AUTO_YES=false
+TARGETS=()
 
-if [[ $# == 0 ]]; then
-    TARGET="."  # 无任何参数时，遍历选择当前目录
-else
-    TARGET=$*
+for arg in "$@"; do
+    if [[ "$arg" == "-y" ]]; then
+        AUTO_YES=true
+    else
+        TARGETS+=("$arg")
+    fi
+done
+
+if [[ ${#TARGETS[@]} == 0 ]]; then
+    TARGETS=(".")
 fi
 
 # 删除 .DS_Store 文件
-find $TARGET -type f -name .DS_Store -delete
+find "${TARGETS[@]}" -type f -name .DS_Store -delete
 
-
-# 从指定的目录中查找空目录
-num=0
+# 收集空目录
+EMPTY_DIRS=()
 while IFS= read -r d; do
-    if [[ "$d" != "." && "$d" != "./" ]];then
-        num=$[num + 1]
-        printf "$ORANGE%2d  $d$END\n" $num
+    if [[ "$d" != "." && "$d" != "./" ]]; then
+        EMPTY_DIRS+=("$d")
     fi
-done < <(find $TARGET -type d -empty)
+done < <(find "${TARGETS[@]}" -type d -empty)
+
+num=${#EMPTY_DIRS[@]}
+
+if [[ $num == 0 ]]; then
+    printf "Not found any empty directories.\n"
+    exit 0
+fi
+
+for i in "${!EMPTY_DIRS[@]}"; do
+    idx=$((i + 1))
+    printf "$ORANGE%2d  ${EMPTY_DIRS[$i]}$END\n" $idx
+done
 
 echo
 
-if [[ $num > 0 ]]; then
+if [[ "$AUTO_YES" == false ]]; then
     printf "${RED}Are you sure to delete these directories?$END (y/n) "
     read -n 1 DEL
-
-    if [[ "$DEL" == "y" || "$DEL" == "Y" ]];then
-        printf "\nDeleting...\n"
-        find $TARGET -type d -empty -delete  # 同样的命令，加上 -delete 参数
-    else
-        printf "\nCancel\n"
+    echo
+    if [[ "$DEL" != "y" && "$DEL" != "Y" ]]; then
+        printf "Cancel\n"
+        exit 0
     fi
-else
-    printf "Not found any empty directories.\n"
 fi
+
+printf "Deleting...\n"
+find "${TARGETS[@]}" -type d -empty -delete
+printf "Deleted $num empty directories.\n"
