@@ -79,3 +79,4 @@ venv.bak/
 .vscode/
 *.bin
 *.BIN
+.kilo/

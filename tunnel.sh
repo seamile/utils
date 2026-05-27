@@ -1,92 +1,107 @@
 #!/bin/bash
 
-USER="alex"
-ENVFILE="/tmp/ssh-tunnel.env"
+PIPE="/tmp/ssh-tunnel.pipe"
+PROXY_BIND="127.0.0.1"
+PROXY_PORT=1086
 
-function set_server() {
-    if [ -n "$1" ]; then
-        echo "SERVER=$1" > $ENVFILE
-        echo "Set SERVER to '$1'"
+# 记录日志
+function log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*";
+}
+
+# 打开 SSH 代理
+function open_tunnel() {
+    if is_tunnel_opened; then
+        log "Tunnel is already opened"
+        return 0
     else
-        echo "Set SERVER failed"
+        log "Opening tunnel to '$1'"
+        ssh -f -qTnN -D "${PROXY_BIND}:${PROXY_PORT}" "$1"  # 通过 -f 在后台运行
+        log "Tunnel opened"
+    fi
+}
+
+# 获取进程 ID
+function get_tunnel_pid() {
+    pid=$(pgrep -f "^ssh .*-D ${PROXY_BIND}:${PROXY_PORT}")
+    if [ -n "$pid" ]; then
+        echo $pid
+    else
         return 1
     fi
 }
 
-function connect() {
-    source $ENVFILE
-    if pkill -0 -f 'ssh -qTnN -D 0.0.0.0:1086'; then
-        echo "Already connected"
-        exit 0
-    else
-        echo "Connecting to server '$SERVER'"
-        ssh -qTnN -D 0.0.0.0:1086 $SERVER
+# 检查 SSH 代理是否打开
+function is_tunnel_opened() {
+    pkill -0 -f "^ssh .*-D ${PROXY_BIND}:${PROXY_PORT}"
+}
+
+# 关闭 SSH 代理
+function close_tunnel() {
+    log 'Closing tunnel'
+    pkill -f "^ssh .*-D ${PROXY_BIND}:${PROXY_PORT}"
+}
+
+# 检查守护进程 (tunnel.sh) 是否运行
+function is_daemon_running() {
+    pkill -0 -f "$(basename $0)" && [ -p "$PIPE" ]
+}
+
+# 关闭守护进程
+function kill_daemon() {
+    log "Killing daemon"
+    rm -f "$PIPE"
+    pkill -f "$(basename $0)"
+}
+
+# 确保 "命名管道" 存在
+function touch_pipe() {
+    if [ ! -p "$1" ]; then
+        [ -e "$1" ] && rm -f "$1"
+        mkfifo "$1"
     fi
 }
 
-function disconnect() {
-    echo 'Disconnecting'
-    pkill -f 'ssh .* -W'
-    pkill -f 'ssh -qTnN -D 0.0.0.0:1086'
-    rm -f $ENVFILE
-}
+# 监听管道，处理新的连接请求
+function listen_pipe() {
+    touch_pipe $PIPE
 
-function reconnect() {
-    echo "Reconnect to server '$1'"
-    if pkill -0 -f 'ssh -qTnN -D 0.0.0.0:1086'; then
-        disconnect
-        set_server $1
-        pkill -HUP -f $(basename $0)
-    else
-        echo "Not connected"
-    fi
+    while [ -p "$PIPE" ]; do
+        if read server < "$PIPE"; then
+            # 先关闭当前隧道
+            close_tunnel
+
+            # 如果输入是 exit，则退出
+            if [[ "$server" == "exit" ]]; then
+                log "Bye"
+                return 0
+            fi
+
+            # 重新连接到指定服务器
+            open_tunnel $server
+        else
+            # 理论上不会发生，但为安全起见，加一个短暂的等待
+            sleep 0.3
+        fi
+    done
+
+    rm -f "$PIPE"
 }
 
 function usage() {
-    echo "Usage: $(basename $0) [-h] [-s SERVER] [-u USER] [-r NEW_SERVER]"
-    echo "Example:"
-    echo "  ssh-tunnel -s SERVER"
-    echo "  ssh-tunnel -r NEW_SERVER"
+    echo -e "\033[1mUsage:\033[0m $(basename "$0") SERVER"
 }
 
-while getopts ":s:u:r:h" opt; do
-    case $opt in
-        s)
-            set_server $OPTARG
-            ;;
-        u)
-            USER=$OPTARG
-            ;;
-        r)
-            reconnect $OPTARG
-            exit 0
-            ;;
-        h)
-            usage
-            exit 0
-            ;;
-        \?)
-            echo "Invalid option: -$OPTARG" >&2
-            usage
-            exit 1
-            ;;
-        :)
-            echo "Option -$OPTARG requires an argument." >&2
-            usage
-            exit 1
-            ;;
-    esac
-done
-shift $((OPTIND-1))
 
-trap "echo 'Reconnecting...'" HUP
-trap "disconnect; exit 0" INT TERM
-
-if [ ! -f $ENVFILE ]; then
-    set_server bat
+# 主程序
+if [[ $# -eq 0 ]]; then
+    usage
+    exit 1
+elif is_daemon_running; then
+    echo "$1" > $PIPE
+else
+    kill_daemon
+    close_tunnel
+    open_tunnel $1
+    listen_pipe
 fi
-
-while true; do
-    connect
-    sleep 1
-done
