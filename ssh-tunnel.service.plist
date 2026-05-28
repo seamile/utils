@@ -3,14 +3,27 @@
 <plist version="1.0">
 <dict>
 	<key>Label</key>
-	<string>com.seamile.SSH-Tunnel</string>
+	<string>ssh-tunnel.service</string>
+
+	<!-- Command -->
 	<key>ProgramArguments</key>
 	<array>
 		<string>/Users/xu/.local/utils/tunnel.sh</string>
-		<string>-s</string>
 		<string>bat</string>
 	</array>
+
+	<!-- KeepAlive -->
 	<key>RunAtLoad</key>
 	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+
+	<!-- Logging -->
+	<key>StandardOutPath</key>
+	<string>/tmp/ssh-tunnel.log</string>
+	<key>StandardErrorPath</key>
+	<string>/tmp/ssh-tunnel.log</string>
 </dict>
 </plist>
