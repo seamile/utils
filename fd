@@ -3,6 +3,23 @@
 OPEN=false
 DELETE=false
 
+help() {
+    cat <<'EOF'
+Usage: fd [-d -o -h] [-r RENAME] kw1[,kw2,kw3,...] [dir1 dir2 dir3 ...]
+
+Find files by name prefix. The first argument can also be a file containing
+one keyword per line.
+
+Options:
+  -d            delete matched files
+  -o            open matched files
+  -r RENAME     rename matched files to RENAME
+  -h            show this help
+
+If no directories are given, search the current directory.
+EOF
+}
+
 while getopts ":dhor:" opt; do
   case $opt in
     d)
@@ -16,13 +33,13 @@ while getopts ":dhor:" opt; do
         RENAME=$OPTARG
         ;;
     *)
-        echo "Usage: fd [-d -o -h] [-r RENAME] kw1[,kw2,kw3,...] [dir1 dir2 dir3 ...]" && exit 0
+        help && exit 0
         ;;
   esac
 done
 shift $((OPTIND -1))
 
-[[ -z "$@" ]] && echo "Usage: fd [-d -o -h] [-r RENAME] kw1[,kw2,kw3,...] [dir1 dir2 dir3 ...]" && exit 1
+[[ -z "$@" ]] && help && exit 1
 
 DIRS=$( [ -z "$2" ] && echo "." || echo "${@:2}" )
 if [ -f $1 ]; then
