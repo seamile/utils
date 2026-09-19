@@ -80,3 +80,4 @@ venv.bak/
 *.bin
 *.BIN
 .kilo/
+.serena/

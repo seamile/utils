@@ -26,6 +26,7 @@ group.add_argument('-S', '--sum', action='store_true', help='输出每列的和'
 parser.add_argument('--start-line', type=int, default=0, help='从第几行开始提取')
 parser.add_argument('-F', '--separator', help='指定字段分隔符，默认为空白字符')
 parser.add_argument('-J', '--join', help='使用指定的连接符合并提取的列')
+parser.add_argument('-r', dest='replace', help='替换提取列中的匹配，格式为 OLD/NEW，支持正则；字面斜杠用 \\/ 表示')
 parser.add_argument('columns', type=str, help='要提取的列号，以逗号分隔，支持 start:stop 语法')
 parser.add_argument('files', nargs='*', help='目标文件，默认为标准输入')
 
@@ -103,6 +104,32 @@ def parse_columns(columns: str):
     return specs
 
 
+def parse_replace(pattern: str) -> tuple[str, str]:
+    """解析 OLD/NEW 替换模式，第一个未转义的 / 为分隔符，\\/ 表示字面斜杠"""
+    parts = ['', '']
+    cur = 0
+    i = 0
+    while i < len(pattern):
+        ch = pattern[i]
+        if ch == '\\' and i + 1 < len(pattern):
+            nxt = pattern[i + 1]
+            if nxt == '/':
+                parts[cur] += '/'
+            else:
+                parts[cur] += ch + nxt
+            i += 2
+        elif ch == '/' and cur == 0:
+            cur = 1
+            i += 1
+        else:
+            parts[cur] += ch
+            i += 1
+    if cur == 0:
+        print(f"Invalid replace pattern (missing '/'): {pattern}", file=sys.stderr)
+        sys.exit(1)
+    return parts[0], parts[1]
+
+
 def confirm(prompt: str) -> bool:
     """从终端获取用户确认"""
     try:
@@ -126,6 +153,15 @@ def main():
 
     specs = parse_columns(args.columns)
 
+    replace_pattern = None
+    if args.replace is not None:
+        old, new = parse_replace(args.replace)
+        try:
+            replace_pattern = re.compile(old)
+        except re.error as e:
+            print(f'Invalid replace regex: {e}', file=sys.stderr)
+            sys.exit(1)
+
     rows = []
     for fields in read_fields(args.files, args.start_line, args.separator):
         row = []
@@ -134,6 +170,12 @@ def main():
                 row.append(fields[spec])
             else:
                 row.extend(fields[spec])
+        if replace_pattern is not None:
+            try:
+                row = [replace_pattern.sub(new, field) for field in row]
+            except re.error as e:
+                print(f'Invalid replacement: {e}', file=sys.stderr)
+                sys.exit(1)
         rows.append(row)
 
     if not rows:
