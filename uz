@@ -16,11 +16,11 @@ decompress() {
 
     case $filetype in
     tar|xz)
-        tar -xvf $1;;
+        tar -xvf $1 --one-top-level;;
     gzip)
-        tar -xzvf $1;;
+        tar -xzvf $1 --one-top-level;;
     bzip2)
-        tar -xjvf $1;;
+        tar -xjvf $1 --one-top-level;;
     zip)
         unzip $1;;
     7-zip|pe32|rar)
